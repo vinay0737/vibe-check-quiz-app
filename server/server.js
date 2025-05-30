@@ -4,135 +4,81 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { Server } from "socket.io";
 import http from "http";
-import voteRouter from "./routes/vote.js";
-import Vote from "./models/voteModel.js";
+import Vote from "./models/voteModel.js"; // Ensure the model is correctly named
+import voteRoutes from "./routes/vote.js"; // Import the vote routes
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = [
-  "https://vibe-check-quiz-app-ten.vercel.app", // Your deployed frontend URL
-  "http://localhost:3000",                      // Your local React dev server
-  "http://localhost:3001",                      // Another local port used by frontend
-];
-
-// CORS middleware for Express
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (e.g. Postman) or from allowedOrigins
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`🌐 ${req.method} ${req.originalUrl} from origin: ${req.headers.origin}`);
-  next();
-});
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// API routes
-app.use("/api", voteRouter);
-
-// Connect MongoDB using MONGO_URI env var
-const mongoURI = process.env.MONGO_URI;
-mongoose
-  .connect(mongoURI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
-  });
-
-// Setup Socket.IO with matching CORS options
+// Socket.IO setup
+// const io = new Server(server, {
+//   cors: {
+//     origin: "http://localhost:3000",
+//     credentials: true,
+//     methods: ["GET", "POST"],
+//   },
+// });
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS (Socket.IO)"));
-      }
-    },
+    origin: "https://vibe-check-quiz-app-ten.vercel.app", // ✅ replace with Vercel URL
     credentials: true,
     methods: ["GET", "POST"],
   },
-  // Optional: state recovery, adjust as needed
-  connectionStateRecovery: {
-    maxDisconnectionDuration: 2 * 60 * 1000,
-    skipMiddlewares: true,
-  },
 });
 
+app.use(cors({
+  origin: "https://vibe-check-quiz-app-ten.vercel.app", // ✅ replace with frontend domain
+  credentials: true,
+}));
+// Middleware
+// app.use(cors());
+app.use(express.json());
+
+// API Routes
+app.use("/api", voteRoutes); // Use the vote routes under /api prefix
+
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
+
+// Socket.IO logic
 io.on("connection", (socket) => {
-  console.log("⚡️ A user connected via Socket.IO");
+  console.log("✅ A user connected");
 
   socket.on("submitQuiz", async (vibe) => {
-    if (!vibe) {
-      return socket.emit("error", "Vibe is required");
-    }
-
-    console.log("📥 Received vibe via socket:", vibe);
-
+    console.log("📥 Received vibe:", vibe);
     try {
       const newVote = new Vote({ vibe });
       await newVote.save();
       console.log("✅ Vote saved:", vibe);
 
-      const votes = await Vote.find();
-      const counts = votes.reduce((acc, vote) => {
-        acc[vote.vibe] = (acc[vote.vibe] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Emit updated counts to all connected clients
-      io.emit("vibeUpdate", counts);
+      const vibes = await Vote.find();
+      io.emit("vibeUpdate", vibes); // Broadcast updated votes
     } catch (error) {
-      console.error("❌ Error saving vote (socket):", error.message);
-      socket.emit("error", "Failed to save vote");
+      console.error("❌ Error saving vote:", error.message);
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ A user disconnected from socket");
+    console.log("❌ A user disconnected");
   });
 });
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "healthy" });
+// Optional route to test if DB connection is working
+app.get("/test", async (req, res) => {
+  const testVote = new Vote({ vibe: "TestVibe" });
+  await testVote.save();
+  res.send("Test vote saved!");
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("❌ Error:", err.stack);
-  res.status(500).json({ error: "Something went wrong!" });
-});
-
-// Start server
+// Server listen
 const PORT = process.env.PORT || 5000;
-const runningServer = server.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received. Shutting down gracefully");
-  runningServer.close(() => {
-    mongoose.connection.close(false, () => {
-      console.log("MongoDB connection closed");
-      process.exit(0);
-    });
-  });
-});
+
