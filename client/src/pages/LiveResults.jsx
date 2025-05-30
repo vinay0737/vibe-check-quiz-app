@@ -1,26 +1,27 @@
-
-
-
-
-
-
-
-
 import React, { useEffect, useState } from "react";
 import io from "socket.io-client";
 import axios from "axios";
 
-const socket = io("http://localhost:5000");
+// Use production backend URL or fallback to localhost
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// Use socket connection with full backend URL
+const socket = io(API_URL, {
+  transports: ["websocket"], // Ensures consistent behavior across environments
+  withCredentials: true,
+});
 
 export default function LiveResults() {
   const [results, setResults] = useState({});
   const myVibe = localStorage.getItem("myVibe");
 
   useEffect(() => {
-    // Fetch initial vote results from backend
+    // Fetch initial vote results
     const fetchResults = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/results");
+        const res = await axios.get(`${API_URL}/results`, {
+          withCredentials: true,
+        });
         setResults(res.data);
       } catch (err) {
         console.error("Failed to fetch results:", err);
@@ -30,13 +31,12 @@ export default function LiveResults() {
     fetchResults();
 
     // Listen for real-time vote updates
-    socket.on("voteUpdate", (data) => {
+    socket.on("vibeUpdate", (data) => {
       setResults(data);
     });
 
-    // Cleanup on unmount
     return () => {
-      socket.off("voteUpdate");
+      socket.off("vibeUpdate");
     };
   }, []);
 

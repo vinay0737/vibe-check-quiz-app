@@ -4,28 +4,28 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { Server } from "socket.io";
 import http from "http";
-import voteRouter from "./routes/vote.js"; // Add this import
+import voteRouter from "./routes/vote.js";
+import Vote from "./models/voteModel.js"; // 🔥 Required for socket.io
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Enhanced Middleware
+// ✅ CORS setup for frontend hosted on Vercel
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  origin: process.env.CLIENT_URL || "https://vibe-check-quiz-app-ten.vercel.app",
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Use the vote router
-app.use("/api", voteRouter); // Add this line
+// ✅ API routes
+app.use("/api", voteRouter);
 
-// MongoDB connection with enhanced options
-// MongoDB connection
+// ✅ MongoDB connection
 const mongoURI = process.env.MONGO_URI;
-
 mongoose
   .connect(mongoURI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -34,20 +34,20 @@ mongoose
     process.exit(1);
   });
 
-// Socket.IO setup with production config
+// ✅ Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: process.env.CLIENT_URL || "https://vibe-check-quiz-app-ten.vercel.app",
     credentials: true,
     methods: ["GET", "POST"],
   },
   connectionStateRecovery: {
-    maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+    maxDisconnectionDuration: 2 * 60 * 1000,
     skipMiddlewares: true,
   }
 });
 
-// Socket.IO logic with error handling
+// ✅ Socket.IO logic
 io.on("connection", (socket) => {
   console.log("✅ A user connected");
 
@@ -55,7 +55,7 @@ io.on("connection", (socket) => {
     if (!vibe) {
       return socket.emit("error", "Vibe is required");
     }
-    
+
     console.log("📥 Received vibe:", vibe);
     try {
       const newVote = new Vote({ vibe });
@@ -80,23 +80,24 @@ io.on("connection", (socket) => {
   });
 });
 
-// Health check endpoint
+// ✅ Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
-// Error handling middleware
+// ✅ Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: "Something went wrong!" });
 });
 
-// Server start with graceful shutdown
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 const runningServer = server.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
 });
 
+// ✅ Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("SIGTERM received. Shutting down gracefully");
   runningServer.close(() => {

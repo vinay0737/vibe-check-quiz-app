@@ -1,18 +1,10 @@
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 
 const socket = io("http://localhost:5000");
 
-const questions = [
+const QUESTIONS = [
   {
     question: "What's your ideal weekend?",
     options: [
@@ -42,6 +34,14 @@ const questions = [
   },
 ];
 
+const getDominantVibe = (answers) => {
+  const vibeCounts = answers.reduce((acc, vibe) => {
+    acc[vibe] = (acc[vibe] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(vibeCounts).reduce((a, b) => (a[1] >= b[1] ? a : b))[0];
+};
+
 const QuizPage = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -52,6 +52,8 @@ const QuizPage = () => {
 
   useEffect(() => {
     socket.on("vibeUpdate", (votes) => {
+      if (!Array.isArray(votes)) return;
+
       const distribution = votes.reduce((acc, vote) => {
         acc[vote.vibe] = (acc[vote.vibe] || 0) + 1;
         return acc;
@@ -59,31 +61,23 @@ const QuizPage = () => {
       setVibeDistribution(distribution);
     });
 
-    return () => {
-      socket.off("vibeUpdate");
-    };
+    return () => socket.off("vibeUpdate");
   }, []);
 
-  const handleOptionSelect = (index) => {
-    setSelectedOptionIndex(index);
-  };
+  const handleOptionSelect = (index) => setSelectedOptionIndex(index);
 
   const handleNext = () => {
     if (selectedOptionIndex === null) return;
 
-    const selectedVibe = questions[currentQuestion].options[selectedOptionIndex].vibe;
+    const selectedVibe = QUESTIONS[currentQuestion].options[selectedOptionIndex].vibe;
     const updatedAnswers = [...answers, selectedVibe];
     setAnswers(updatedAnswers);
     setSelectedOptionIndex(null);
 
-    if (currentQuestion + 1 < questions.length) {
-      setCurrentQuestion(currentQuestion + 1);
+    if (currentQuestion + 1 < QUESTIONS.length) {
+      setCurrentQuestion((prev) => prev + 1);
     } else {
-      const vibeCounts = updatedAnswers.reduce((acc, vibe) => {
-        acc[vibe] = (acc[vibe] || 0) + 1;
-        return acc;
-      }, {});
-      const final = Object.entries(vibeCounts).reduce((a, b) => (a[1] >= b[1] ? a : b))[0];
+      const final = getDominantVibe(updatedAnswers);
       setFinalVibe(final);
       setShowResult(true);
       localStorage.setItem("myVibe", final);
@@ -91,18 +85,32 @@ const QuizPage = () => {
     }
   };
 
-  // Calculate total votes to show progress bars
   const totalVotes = Object.values(vibeDistribution).reduce((a, b) => a + b, 0);
+
+  const handleShare = () => {
+    const shareData = {
+      title: "My Vibe Check Result",
+      text: `I got '${finalVibe}' vibe on Vibe Check Quiz! Try it yourself.`,
+      url: window.location.origin,
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      alert("Result copied to clipboard!");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center px-4 py-10">
       {!showResult ? (
         <div className="w-full max-w-xl bg-gray-800 p-6 rounded-xl shadow-lg">
           <h2 className="text-2xl font-bold mb-4 text-center">
-            {questions[currentQuestion].question}
+            {QUESTIONS[currentQuestion].question}
           </h2>
           <div className="grid grid-cols-1 gap-4">
-            {questions[currentQuestion].options.map((option, index) => (
+            {QUESTIONS[currentQuestion].options.map((option, index) => (
               <button
                 key={index}
                 onClick={() => handleOptionSelect(index)}
@@ -121,7 +129,7 @@ const QuizPage = () => {
             disabled={selectedOptionIndex === null}
             className="mt-6 bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-full font-semibold w-full transition disabled:opacity-50"
           >
-            {currentQuestion === questions.length - 1 ? "Finish" : "Next"}
+            {currentQuestion === QUESTIONS.length - 1 ? "Finish" : "Next"}
           </button>
         </div>
       ) : (
@@ -130,7 +138,8 @@ const QuizPage = () => {
             Your Vibe: <span className="text-indigo-400">{finalVibe}</span>
           </h2>
           <h3 className="text-xl font-semibold mb-2">Live Vibe Distribution</h3>
-          {Object.keys(vibeDistribution).length === 0 ? (
+
+          {totalVotes === 0 ? (
             <p className="text-gray-400">No votes yet. Be the first!</p>
           ) : (
             <ul className="mt-4 space-y-3 text-left">
@@ -138,10 +147,7 @@ const QuizPage = () => {
                 {Object.entries(vibeDistribution)
                   .sort((a, b) => b[1] - a[1])
                   .map(([vibe, count]) => {
-                    const percentage = totalVotes
-                      ? Math.round((count / totalVotes) * 100)
-                      : 0;
-
+                    const percentage = Math.round((count / totalVotes) * 100);
                     return (
                       <motion.li
                         key={vibe}
@@ -170,22 +176,8 @@ const QuizPage = () => {
             </ul>
           )}
 
-          {/* Share Result Button with Framer Motion animation */}
           <motion.button
-            onClick={() => {
-              const shareData = {
-                title: "My Vibe Check Result",
-                text: `I got '${finalVibe}' vibe on Vibe Check Quiz! Try it yourself.`,
-                url: window.location.origin,
-              };
-
-              if (navigator.share) {
-                navigator.share(shareData).catch(console.error);
-              } else {
-                navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-                alert("Result copied to clipboard!");
-              }
-            }}
+            onClick={handleShare}
             className="mt-6 bg-indigo-600 px-5 py-3 rounded-md hover:bg-indigo-700 shadow-lg"
             aria-label="Share your vibe check result"
             whileHover={{ scale: 1.05 }}
