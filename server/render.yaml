@@ -1,0 +1,26 @@
+# render.yaml
+
+services:
+  - type: web
+    name: vibe-check-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    env: node
+    envVars:
+      - key: MONGO_URI
+        fromDatabase:
+          name: vibe-check-db
+          property: connectionString
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: https://vibe-check-quiz-app-ten.vercel.app/
+
+databases:
+  - name: vibe-check-db
+    databaseName: vibecheck
+    user: vibecheckuser
+    plan: free
