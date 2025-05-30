@@ -19,9 +19,10 @@ export default function LiveResults() {
     // Fetch initial vote results
     const fetchResults = async () => {
       try {
-        const res = await axios.get(`${API_URL}/results`, {
+        const res = await axios.get(`${API_URL}/api/results`, {
           withCredentials: true,
         });
+        console.log("Get The rekdd", res)
         setResults(res.data);
       } catch (err) {
         console.error("Failed to fetch results:", err);
