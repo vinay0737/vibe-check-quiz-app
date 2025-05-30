@@ -2,8 +2,15 @@ import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 
-const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000");
 
+// Use production backend URL or fallback to localhost
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+// Initialize socket connection with cors and credentials options
+const socket = io(SOCKET_URL, {
+  transports: ["websocket"],
+  withCredentials: true,
+});
 const QUESTIONS = [
   {
     question: "What's your ideal weekend?",
