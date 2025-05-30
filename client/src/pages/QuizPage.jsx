@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 // Use production backend URL or fallback to localhost
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "https://vibe-check-quiz-app-1.onrender.com";
 
 // Initialize socket connection with cors and credentials options
 const socket = io(SOCKET_URL, {

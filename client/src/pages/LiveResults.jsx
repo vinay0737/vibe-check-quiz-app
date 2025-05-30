@@ -3,7 +3,7 @@ import io from "socket.io-client";
 import axios from "axios";
 
 // Use production backend URL or fallback to localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://vibe-check-quiz-app-1.onrender.com";
 
 // Use socket connection with full backend URL
 const socket = io(API_URL, {
